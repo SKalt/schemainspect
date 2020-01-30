@@ -10,7 +10,7 @@ repository = "https://github.com/djrobstep/schemainspect"
 homepage = "https://github.com/djrobstep/schemainspect"
 
 [tool.poetry.dependencies]
-python = "*"
+python = ">=3.6"
 six = "*"
 sqlalchemy = "*"
 
@@ -24,6 +24,7 @@ flake8 = "*"
 isort = "*"
 migra = "*"
 black = { version = ">=19.10b0", python=">=3.6" }
+mypy = "^0.761"
 
 [tool.isort]
 multi_line_output = 3

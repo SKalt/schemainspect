@@ -43,3 +43,4 @@ scratch
 poetry.lock
 .DS_Store
 pip-wheel-metadata
+.mypy_cache
