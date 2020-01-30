@@ -1,6 +1,3 @@
-from collections import OrderedDict as od
-
-
 def to_pytype(sqla_dialect, typename):
     try:
         sqla_obj = sqla_dialect.ischema_names[typename]()
@@ -31,4 +28,4 @@ class NullInspector(DBInspector):
         pass
 
     def __getattr__(self, name):
-        return od()
+        return {}

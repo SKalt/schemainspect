@@ -1,5 +1,3 @@
-from collections import OrderedDict as od
-
 from .misc import AutoRepr, quoted_identifier
 
 
@@ -191,8 +189,8 @@ class InspectedSelectable(Inspected):
         self.dependents = dependents or []
         self.dependent_on_all = []
         self.dependents_all = []
-        self.constraints = od()
-        self.indexes = od()
+        self.constraints = {}
+        self.indexes = {}
         self.comment = comment
         self.parent_table = parent_table
         self.partition_def = partition_def

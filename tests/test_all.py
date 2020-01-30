@@ -1,5 +1,4 @@
 import datetime
-from collections import OrderedDict as od
 from copy import deepcopy
 
 import sqlalchemy.dialects.postgresql
@@ -36,23 +35,21 @@ INT = "interval"
 INTHM = "interval hour to minute"
 PGRANGE = sqlalchemy.dialects.postgresql.ranges.DATERANGE
 TD = datetime.timedelta
-FILMS_COLUMNS = od(
-    [
-        ("code", ColumnInfo("code", "character", str, dbtypestr="character(5)")),
-        ("title", ColumnInfo("title", "character varying", str)),
-        ("did", ColumnInfo("did", "bigint", int)),
-        ("date_prod", ColumnInfo("date_prod", "date", datetime.date)),
-        ("kind", ColumnInfo("kind", CV, str, dbtypestr=CV10)),
-        ("len", ColumnInfo("len", INT, TD, dbtypestr=INTHM)),
-        ("drange", ColumnInfo("drange", "daterange", PGRANGE)),
-    ]
-)
-FILMSF_COLUMNS = od(
-    [
-        ("title", ColumnInfo("title", "character varying", str)),
-        ("release_date", ColumnInfo("release_date", "date", datetime.date)),
-    ]
-)
+FILMS_COLUMNS = {
+    "code": ColumnInfo("code", "character", str, dbtypestr="character(5)"),
+    "title": ColumnInfo("title", "character varying", str),
+    "did": ColumnInfo("did", "bigint", int),
+    "date_prod": ColumnInfo("date_prod", "date", datetime.date),
+    "kind": ColumnInfo("kind", CV, str, dbtypestr=CV10),
+    "len": ColumnInfo("len", INT, TD, dbtypestr=INTHM),
+    "drange": ColumnInfo("drange", "daterange", PGRANGE),
+}
+FILMSF_COLUMNS = {
+    "title",
+    ColumnInfo("title", "character varying", str),
+    "release_date",
+    ColumnInfo("release_date", "date", datetime.date),
+}
 d1 = ColumnInfo("d", "date", datetime.date)
 d2 = ColumnInfo("def_t", "text", str, default="NULL::text")
 d3 = ColumnInfo("def_d", "date", datetime.date, default="'2014-01-01'::date")
@@ -340,7 +337,7 @@ def asserts_pg(i):
     v_films = n("v_films")
     v_films2 = n("v_films2")
     v = i.views[v_films]
-    public_views = od((k, v) for k, v in i.views.items() if v.schema == "public")
+    public_views = dict((k, v) for k, v in i.views.items() if v.schema == "public")
     assert list(public_views.keys()) == [v_films, v_films2]
     assert v.columns == FILMS_COLUMNS
     assert v.create_statement == VDEF
@@ -420,7 +417,7 @@ def asserts_pg(i):
     assert empty.comment == "emptytable comment"
 
     # empty tables
-    assert empty.columns == od()
+    assert empty.columns == {}
     assert (
         empty.create_statement
         == """create table "public"."emptytable" (
@@ -494,6 +491,6 @@ def test_postgres_inspect(db):
 
 def test_empty():
     x = NullInspector()
-    assert x.tables == od()
-    assert x.relations == od()
+    assert x.tables == {}
+    assert x.relations == {}
     assert type(schemainspect.get_inspector(None)) == NullInspector

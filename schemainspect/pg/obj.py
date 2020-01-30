@@ -1,4 +1,3 @@
-from collections import OrderedDict as od
 from itertools import groupby
 
 from sqlalchemy import text
@@ -898,7 +897,7 @@ class PostgreSQL(DBInspector):
         self.load_schemas()
         self.load_all_relations()
         self.load_functions()
-        self.selectables = od()
+        self.selectables = {}
         self.selectables.update(self.relations)
         self.selectables.update(self.functions)
         self.load_deps()
@@ -913,11 +912,11 @@ class PostgreSQL(DBInspector):
     def load_schemas(self):
         q = self.c.execute(self.SCHEMAS_QUERY)
         schemas = [InspectedSchema(schema=each.schema) for each in q]
-        self.schemas = od((schema.schema, schema) for schema in schemas)
+        self.schemas = {schema.schema: schema for schema in schemas}
 
     def load_rlspolicies(self):
         if self.pg_version <= 9:
-            self.rlspolicies = od()
+            self.rlspolicies = {}
             return
 
         q = self.c.execute(self.RLSPOLICIES_QUERY)
@@ -936,7 +935,7 @@ class PostgreSQL(DBInspector):
             for p in q
         ]
 
-        self.rlspolicies = od((p.key, p) for p in rlspolicies)
+        self.rlspolicies = {p.key: p for p in rlspolicies}
 
     def load_collations(self):
         q = self.c.execute(self.COLLATIONS_QUERY)
@@ -952,7 +951,7 @@ class PostgreSQL(DBInspector):
             )
             for i in q
         ]
-        self.collations = od((i.quoted_full_name, i) for i in collations)
+        self.collations = {i.quoted_full_name: i for i in collations}
 
     def load_privileges(self):
         q = self.c.execute(self.PRIVILEGES_QUERY)
@@ -966,7 +965,7 @@ class PostgreSQL(DBInspector):
             )
             for i in q
         ]
-        self.privileges = od((i.key, i) for i in privileges)
+        self.privileges = {i.key: i for i in privileges}
 
     def load_deps(self):
         q = self.c.execute(self.DEPS_QUERY)
@@ -999,41 +998,41 @@ class PostgreSQL(DBInspector):
 
     @property
     def partitioned_tables(self):
-        return od((k, v) for k, v in self.tables.items() if v.is_partitioned)
+        return dict((k, v) for k, v in self.tables.items() if v.is_partitioned)
 
     @property
     def alterable_tables(self):  # ordinary tables and parent tables
-        return od((k, v) for k, v in self.tables.items() if v.is_alterable)
+        return dict((k, v) for k, v in self.tables.items() if v.is_alterable)
 
     @property
     def data_tables(self):  # ordinary tables and child tables
-        return od((k, v) for k, v in self.tables.items() if v.contains_data)
+        return dict((k, v) for k, v in self.tables.items() if v.contains_data)
 
     @property
     def partitioning_child_tables(self):
-        return od(
+        return dict(
             (k, v) for k, v in self.tables.items() if v.is_partitioning_child_table
         )
 
     @property
     def tables_using_partitioning(self):
-        return od((k, v) for k, v in self.tables.items() if v.uses_partitioning)
+        return dict((k, v) for k, v in self.tables.items() if v.uses_partitioning)
 
     @property
     def tables_not_using_partitioning(self):
-        return od((k, v) for k, v in self.tables.items() if not v.uses_partitioning)
+        return dict((k, v) for k, v in self.tables.items() if not v.uses_partitioning)
 
     def load_all_relations(self):
-        self.tables = od()
-        self.views = od()
-        self.materialized_views = od()
-        self.composite_types = od()
+        self.tables = {}
+        self.views = {}
+        self.materialized_views = {}
+        self.composite_types = {}
 
         q = self.c.execute(self.ENUMS_QUERY)
         enumlist = [
             InspectedEnum(name=i.name, schema=i.schema, elements=i.elements) for i in q
         ]
-        self.enums = od((i.quoted_full_name, i) for i in enumlist)
+        self.enums = {i.quoted_full_name: i for i in enumlist}
         q = self.c.execute(self.ALL_RELATIONS_QUERY)
         for _, g in groupby(q, lambda x: (x.relationtype, x.schema, x.name)):
             clist = list(g)
@@ -1067,7 +1066,7 @@ class PostgreSQL(DBInspector):
             s = InspectedSelectable(
                 name=f.name,
                 schema=f.schema,
-                columns=od((c.name, c) for c in columns),
+                columns={c.name: c for c in columns},
                 relationtype=f.relationtype,
                 definition=f.definition,
                 comment=f.comment,
@@ -1085,7 +1084,7 @@ class PostgreSQL(DBInspector):
             }
             att = getattr(self, RELATIONTYPES[f.relationtype])
             att[s.quoted_full_name] = s
-        self.relations = od()
+        self.relations = {}
         for x in (self.tables, self.views, self.materialized_views):
             self.relations.update(x)
         q = self.c.execute(self.INDEXES_QUERY)
@@ -1109,10 +1108,10 @@ class PostgreSQL(DBInspector):
             )
             for i in q
         ]
-        self.indexes = od((i.quoted_full_name, i) for i in indexlist)
+        self.indexes = {i.quoted_full_name: i for i in indexlist}
         q = self.c.execute(self.SEQUENCES_QUERY)
         sequencelist = [InspectedSequence(name=i.name, schema=i.schema) for i in q]
-        self.sequences = od((i.quoted_full_name, i) for i in sequencelist)
+        self.sequences = {i.quoted_full_name: i for i in sequencelist}
         q = self.c.execute(self.CONSTRAINTS_QUERY)
 
         constraintlist = []
@@ -1134,7 +1133,7 @@ class PostgreSQL(DBInspector):
 
             constraintlist.append(constraint)
 
-        self.constraints = od((i.quoted_full_name, i) for i in constraintlist)
+        self.constraints = {i.quoted_full_name: i for i in constraintlist}
 
         q = self.c.execute(self.EXTENSIONS_QUERY)
         extensionlist = [
@@ -1142,7 +1141,7 @@ class PostgreSQL(DBInspector):
             for i in q
         ]
         # extension names are unique per-database rather than per-schema like other things (even though extensions are assigned to a particular schema)
-        self.extensions = od((i.name, i) for i in extensionlist)
+        self.extensions = {i.name: i for i in extensionlist}
         # add indexes and constraints to each table
         for each in self.indexes.values():
             t = each.quoted_full_table_name
@@ -1154,7 +1153,7 @@ class PostgreSQL(DBInspector):
             self.relations[t].constraints[n] = each
 
     def load_functions(self):
-        self.functions = od()
+        self.functions = {}
         q = self.c.execute(self.FUNCTIONS_QUERY)
         for _, g in groupby(q, lambda x: (x.schema, x.name, x.identity_arguments)):
             clist = list(g)
@@ -1199,7 +1198,7 @@ class PostgreSQL(DBInspector):
             s = InspectedFunction(
                 schema=f.schema,
                 name=f.name,
-                columns=od((c.name, c) for c in columns),
+                columns={c.name: c for c in columns},
                 inputs=plist,
                 identity_arguments=f.identity_arguments,
                 result_string=f.result_string,
@@ -1230,7 +1229,7 @@ class PostgreSQL(DBInspector):
             )
             for i in q
         ]  # type: list[InspectedTrigger]
-        self.triggers = od((t.signature, t) for t in triggers)
+        self.triggers = {t.signature: t for t in triggers}
 
     def load_types(self):
         q = self.c.execute(self.TYPES_QUERY)
@@ -1241,7 +1240,7 @@ class PostgreSQL(DBInspector):
         types = [
             InspectedType(i.name, i.schema, dict(col(_) for _ in i.columns)) for i in q
         ]  # type: list[InspectedType]
-        self.types = od((t.signature, t) for t in types)
+        self.types = {t.signature: t for t in types}
 
     def load_domains(self):
         q = self.c.execute(self.DOMAINS_QUERY)
@@ -1261,8 +1260,8 @@ class PostgreSQL(DBInspector):
                 i.check,
             )
             for i in q
-        ]  # type: list[InspectedType]
-        self.domains = od((t.signature, t) for t in domains)
+        ]  # type: List[InspectedType]
+        self.domains = {t.signature: t for t in domains}
 
     def one_schema(self, schema):
         props = "schemas relations tables views functions selectables sequences constraints indexes enums extensions privileges collations triggers"
