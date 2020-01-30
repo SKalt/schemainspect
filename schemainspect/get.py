@@ -1,10 +1,11 @@
 from typing import Optional, Union
-from sqlalchemy.orm import Session
+
 from sqlalchemy.engine import Connection
-from .inspector import NullInspector, DBInspector
+from sqlalchemy.orm import Session
+
+from .inspector import DBInspector, NullInspector
 from .misc import connection_from_s_or_c
 from .pg import PostgreSQL
-
 
 SUPPORTED = {"postgresql": PostgreSQL}
 

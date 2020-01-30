@@ -1,36 +1,47 @@
+from typing import Any, List, Optional
+
 from .misc import AutoRepr, quoted_identifier
+
+# TODO: consider using jinja2-style subclassing of str to mark
+# templated SQL as safe.
 
 
 class Inspected(AutoRepr):
+    name: str
+    schema: str
+
     @property
-    def quoted_full_name(self):
+    def quoted_full_name(self) -> str:
         return "{}.{}".format(
             quoted_identifier(self.schema), quoted_identifier(self.name)
         )
 
     @property
-    def signature(self):
+    def signature(self) -> str:
         return self.quoted_full_name
 
     @property
-    def unquoted_full_name(self):
+    def unquoted_full_name(self) -> str:
         return "{}.{}".format(self.schema, self.name)
 
     @property
-    def quoted_name(self):
+    def quoted_name(self) -> str:
         return quoted_identifier(self.name)
 
     @property
-    def quoted_schema(self):
+    def quoted_schema(self) -> str:
         return quoted_identifier(self.schema)
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not self == other
 
 
 class TableRelated(object):
+    schema: str
+    table_name: str
+
     @property
-    def quoted_full_table_name(self):
+    def quoted_full_table_name(self) -> str:
         return "{}.{}".format(
             quoted_identifier(self.schema), quoted_identifier(self.table_name)
         )
@@ -39,16 +50,16 @@ class TableRelated(object):
 class ColumnInfo(AutoRepr):
     def __init__(
         self,
-        name,
+        name: str,
         dbtype,
         pytype,
         default=None,
-        not_null=False,
-        is_enum=False,
+        not_null: bool = False,
+        is_enum: bool = False,
         enum=None,
-        dbtypestr=None,
+        dbtypestr: Optional[str] = None,
         collation=None,
-    ):
+    ) -> None:
         self.name = name or ""
         self.dbtype = dbtype
         self.dbtypestr = dbtypestr or dbtype
@@ -59,20 +70,23 @@ class ColumnInfo(AutoRepr):
         self.enum = enum
         self.collation = collation
 
-    def __eq__(self, other):
-        return (
-            self.name == other.name
-            and self.dbtype == other.dbtype
-            and self.dbtypestr == other.dbtypestr
-            and self.pytype == other.pytype
-            and self.default == other.default
-            and self.not_null == other.not_null
-            and self.enum == other.enum
-            and self.collation == other.collation
-        )
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, ColumnInfo):
+            return (
+                self.name == other.name
+                and self.dbtype == other.dbtype
+                and self.dbtypestr == other.dbtypestr
+                and self.pytype == other.pytype
+                and self.default == other.default
+                and self.not_null == other.not_null
+                and self.enum == other.enum
+                and self.collation == other.collation
+            )
+        else:
+            return False
 
-    def alter_clauses(self, other):
-        clauses = []
+    def alter_clauses(self, other: ColumnInfo) -> List[str]:
+        clauses: List[str] = []
         if self.default != other.default:
             clauses.append(self.alter_default_clause)
         if self.not_null != other.not_null:
@@ -81,7 +95,7 @@ class ColumnInfo(AutoRepr):
             clauses.append(self.alter_data_type_clause)
         return clauses
 
-    def change_enum_to_string_statement(self, table_name):
+    def change_enum_to_string_statement(self, table_name: str) -> str:
         if self.is_enum:
             return "alter table {} alter column {} set data type varchar using {}::varchar;".format(
                 table_name, self.quoted_name, self.quoted_name
@@ -90,7 +104,7 @@ class ColumnInfo(AutoRepr):
         else:
             raise ValueError
 
-    def change_string_to_enum_statement(self, table_name):
+    def change_string_to_enum_statement(self, table_name: str) -> str:
         if self.is_enum:
             return "alter table {} alter column {} set data type {} using {}::{};".format(
                 table_name,
@@ -103,38 +117,38 @@ class ColumnInfo(AutoRepr):
         else:
             raise ValueError
 
-    def alter_table_statements(self, other, table_name):
+    def alter_table_statements(self, other: ColumnInfo, table_name: str) -> List[str]:
         prefix = "alter table {}".format(table_name)
         return ["{} {};".format(prefix, c) for c in self.alter_clauses(other)]
 
     @property
-    def quoted_name(self):
+    def quoted_name(self) -> str:
         return quoted_identifier(self.name)
 
     @property
-    def creation_clause(self):
-        x = "{} {}".format(self.quoted_name, self.dbtypestr)
+    def creation_clause(self) -> str:
+        clause = "{} {}".format(self.quoted_name, self.dbtypestr)
         if self.not_null:
-            x += " not null"
+            clause += " not null"
         if self.default:
-            x += " default {}".format(self.default)
-        return x
+            clause += " default {}".format(self.default)
+        return clause
 
     @property
-    def add_column_clause(self):
+    def add_column_clause(self) -> str:
         return "add column {}{}".format(self.creation_clause, self.collation_subclause)
 
     @property
-    def drop_column_clause(self):
+    def drop_column_clause(self) -> str:
         return "drop column {k}".format(k=self.quoted_name)
 
     @property
-    def alter_not_null_clause(self):
+    def alter_not_null_clause(self) -> str:
         keyword = "set" if self.not_null else "drop"
         return "alter column {} {} not null".format(self.quoted_name, keyword)
 
     @property
-    def alter_default_clause(self):
+    def alter_default_clause(self) -> str:
         if self.default:
             alter = "alter column {} set default {}".format(
                 self.quoted_name, self.default
@@ -144,7 +158,7 @@ class ColumnInfo(AutoRepr):
         return alter
 
     @property
-    def collation_subclause(self):
+    def collation_subclause(self) -> str:
         if self.collation:
             collate = " collate {}".format(quoted_identifier(self.collation))
         else:
@@ -152,7 +166,7 @@ class ColumnInfo(AutoRepr):
         return collate
 
     @property
-    def alter_data_type_clause(self):
+    def alter_data_type_clause(self) -> str:
         return "alter column {} set data type {}{} using {}::{}".format(
             self.quoted_name,
             self.dbtypestr,
@@ -165,19 +179,19 @@ class ColumnInfo(AutoRepr):
 class InspectedSelectable(Inspected):
     def __init__(
         self,
-        name,
-        schema,
+        name: str,
+        schema: str,
         columns,
         inputs=None,
         definition=None,
-        dependent_on=None,
-        dependents=None,
-        comment=None,
-        relationtype="unknown",
+        dependent_on: Optional[List] = None,
+        dependents: Optional[List] = None,
+        comment: Optional[str] = None,
+        relationtype: str = "unknown",
         parent_table=None,
         partition_def=None,
-        rowsecurity=False,
-        forcerowsecurity=False,
+        rowsecurity: bool = False,
+        forcerowsecurity: bool = False,
     ):
         self.name = name
         self.schema = schema
@@ -197,17 +211,16 @@ class InspectedSelectable(Inspected):
         self.rowsecurity = rowsecurity
         self.forcerowsecurity = forcerowsecurity
 
-    def __eq__(self, other):
-        equalities = (
-            type(self) == type(other),
-            self.relationtype == other.relationtype,
-            self.name == other.name,
-            self.schema == other.schema,
-            dict(self.columns) == dict(other.columns),
-            self.inputs == other.inputs,
-            self.definition == other.definition,
-            self.parent_table == other.parent_table,
-            self.partition_def == other.partition_def,
-            self.rowsecurity == other.rowsecurity,
+    def __eq__(self, other: Any) -> bool:
+        return (
+            type(self) == type(other)
+            and self.relationtype == other.relationtype
+            and self.name == other.name
+            and self.schema == other.schema
+            and dict(self.columns) == dict(other.columns)
+            and self.inputs == other.inputs
+            and self.definition == other.definition
+            and self.parent_table == other.parent_table
+            and self.partition_def == other.partition_def
+            and self.rowsecurity == other.rowsecurity
         )
-        return all(equalities)
