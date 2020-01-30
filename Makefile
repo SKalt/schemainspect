@@ -22,4 +22,5 @@ fmt:
 	black .
 
 lint:
+	black --check .
 	flake8 .
