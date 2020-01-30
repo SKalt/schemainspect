@@ -1,10 +1,7 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import datetime
 from collections import OrderedDict as od
 from copy import deepcopy
 
-import six
 import sqlalchemy.dialects.postgresql
 import sqlalchemy.exc
 from pytest import raises
@@ -23,8 +20,6 @@ from schemainspect.pg.obj import (
     InspectedSequence,
 )
 
-if not six.PY2:
-    unicode = str
 T_CREATE = """create table "public"."films" (
     "code" character(5) not null,
     "title" character varying not null,
