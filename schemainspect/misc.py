@@ -1,6 +1,5 @@
 import inspect
 
-import six
 from pkg_resources import resource_stream as pkg_resource_stream
 
 
