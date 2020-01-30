@@ -24,3 +24,6 @@ fmt:
 lint:
 	black --check .
 	flake8 .
+
+typecheck:
+	mypy --strict .
