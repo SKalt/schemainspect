@@ -439,12 +439,13 @@ class InspectedSequence(Inspected):
         return "create sequence {};".format(self.quoted_full_name)
 
     def __eq__(self, other: Any) -> bool:
-        # FIXME: duck typing
-        return self.name == other.name and self.schema == other.schema
-
+        if isinstance(other, Inspected):
+            return self.name == other.name and self.schema == other.schema
+        else:
+            return False
 
 class InspectedCollation(Inspected):
-    def __init__(self, name, schema, provider, encoding, lc_collate, lc_ctype, version):
+    def __init__(self, name: str, schema: str, provider, encoding, lc_collate, lc_ctype, version):
         self.name = name
         self.schema = schema
         self.provider = provider
