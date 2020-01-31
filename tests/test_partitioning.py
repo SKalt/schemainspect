@@ -3,7 +3,7 @@ from sqlbag import S
 from schemainspect import get_inspector
 
 
-def test_partitions(db):
+def test_partitions(db) -> None:
     with S(db) as s:
         i = get_inspector(s)
 
@@ -86,7 +86,7 @@ CREATE TABLE plain (id int);
     assert p.uses_partitioning is False
 
 
-def test_inherit(db):
+def test_inherit(db) -> None:
     with S(db) as s:
         i = get_inspector(s)
 

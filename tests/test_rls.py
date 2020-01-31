@@ -5,7 +5,7 @@ from schemainspect import get_inspector
 schemainspect_test_role = "schemainspect_test_role"
 
 
-def create_role(s, rolename):
+def create_role(s, rolename) -> None:
     role = s.execute(
         f"""
 SELECT 1 FROM pg_roles WHERE rolname=:rolename
@@ -23,7 +23,7 @@ SELECT 1 FROM pg_roles WHERE rolname=:rolename
         )
 
 
-def test_rls(db):
+def test_rls(db) -> None:
     with S(db) as s:
         i = get_inspector(s)
 

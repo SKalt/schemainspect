@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import sqlalchemy.dialects.postgresql
 import sqlalchemy.exc
+from sqlalchemy.orm import Session
 from pytest import raises
 from sqlbag import S, temporary_database
 
@@ -79,7 +80,7 @@ MVDEF = """create materialized view "public"."mv_films" as  SELECT films.code,
 """
 
 
-def test_basic_schemainspect():
+def test_basic_schemainspect() -> None:
     a = ColumnInfo("a", "text", str)
     a2 = ColumnInfo("a", "text", str)
     b = ColumnInfo("b", "varchar", str, dbtypestr="varchar(10)")
@@ -110,20 +111,20 @@ def test_basic_schemainspect():
                 get_inspector(s)
 
 
-def test_inspected():
+def test_inspected() -> None:
     x = schemainspect.Inspected()
     x.name = "b"
     x.schema = "a"
     assert x.quoted_full_name == '"a"."b"'
     assert x.unquoted_full_name == "a.b"
-    x = schemainspect.ColumnInfo(name="a", dbtype="integer", pytype=int)
-    assert x.creation_clause == '"a" integer'
-    x.default = "5"
-    x.not_null = True
-    assert x.creation_clause == '"a" integer not null default 5'
+    y = schemainspect.ColumnInfo(name="a", dbtype="integer", pytype=int)
+    assert y.creation_clause == '"a" integer'
+    y.default = "5"
+    y.not_null = True
+    assert y.creation_clause == '"a" integer not null default 5'
 
 
-def test_postgres_objects():
+def test_postgres_objects() -> None:
     ex = InspectedExtension("name", "schema", "1.2")
     assert ex.drop_statement == 'drop extension if exists "name";'
     assert (
@@ -168,29 +169,30 @@ def test_postgres_objects():
     assert i == i2
     i2.schema = "schema2"
     assert i != i2
-    i = InspectedEnum("name", "schema", ["a", "b", "c"])
+    ie = InspectedEnum("name", "schema", ["a", "b", "c"])
     assert (
-        i.create_statement == "create type \"schema\".\"name\" as enum ('a', 'b', 'c');"
+        ie.create_statement
+        == "create type \"schema\".\"name\" as enum ('a', 'b', 'c');"
     )
-    assert i.drop_statement == 'drop type "schema"."name";'
+    assert ie.drop_statement == 'drop type "schema"."name";'
     i2 = InspectedEnum("name", "schema", ["a", "a1", "c", "d"])
-    assert i.can_be_changed_to(i)
-    assert i != i2
-    assert not i.can_be_changed_to(i2)
+    assert ie.can_be_changed_to(i)
+    assert ie != i2
+    assert not ie.can_be_changed_to(i2)
     i2.elements = ["a", "b"]
     assert i2.can_be_changed_to(i)
     i2.elements = ["b", "a"]
     assert not i2.can_be_changed_to(i)
     i2.elements = ["a", "b", "c"]
     assert i2.can_be_changed_to(i)
-    assert i.can_be_changed_to(i2)
+    assert ie.can_be_changed_to(i2)
     i2.elements = ["a", "a1", "c", "d", "b"]
-    assert not i.can_be_changed_to(i2)
+    assert not ie.can_be_changed_to(i2)
     with raises(ValueError):
-        i.change_statements(i2)
+        ie.change_statements(i2)
     i2.elements = ["a0", "a", "a1", "b", "c", "d"]
-    assert i.can_be_changed_to(i2)
-    assert i.change_statements(i2) == [
+    assert ie.can_be_changed_to(i2)
+    assert ie.change_statements(i2) == [
         "alter type \"schema\".\"name\" add value 'a0' before 'a'",
         "alter type \"schema\".\"name\" add value 'a1' after 'a'",
         "alter type \"schema\".\"name\" add value 'd' after 'c'",
@@ -220,7 +222,7 @@ def test_postgres_objects():
     )
 
 
-def setup_pg_schema(s):
+def setup_pg_schema(s: Session) -> None:
     s.execute("create table emptytable()")
     s.execute("comment on table emptytable is 'emptytable comment'")
     s.execute("create extension pg_trgm")
@@ -313,7 +315,7 @@ def setup_pg_schema(s):
     )
 
 
-def n(name, schema="public"):
+def n(name: str, schema: str = "public") -> str:
     return quoted_identifier(name, schema=schema)
 
 
@@ -474,14 +476,14 @@ def asserts_pg(i):
         tid.change_string_to_enum_statement("t")
 
 
-def test_weird_names(db):
+def test_weird_names(db) -> None:
     with S(db) as s:
         s.execute("""create table "a(abc=3)"(id text)  """)
         i = get_inspector(s)
         assert list(i.tables.keys())[0] == '"public"."a(abc=3)"'
 
 
-def test_postgres_inspect(db):
+def test_postgres_inspect(db) -> None:
     with S(db) as s:
         setup_pg_schema(s)
         i = get_inspector(s)
@@ -489,7 +491,7 @@ def test_postgres_inspect(db):
         assert i == i == get_inspector(s)
 
 
-def test_empty():
+def test_empty() -> None:
     x = NullInspector()
     assert x.tables == {}
     assert x.relations == {}

@@ -23,7 +23,7 @@ create or replace function "public"."depends_on_vvv"(t text)
 """
 
 
-def test_lineendings(db):
+def test_lineendings(db) -> None:
     with S(db) as s:
         s.execute(FUNC_N)
         i = get_inspector(s)
@@ -32,7 +32,7 @@ def test_lineendings(db):
         assert f.definition == "select\r\n1"
 
 
-def test_types_and_domains(db):
+def test_types_and_domains(db) -> None:
     with S(db) as s:
         s.execute(CREATE)
         i = get_inspector(s)

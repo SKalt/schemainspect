@@ -1,5 +1,13 @@
 from itertools import groupby
-
+from typing import (
+    List,
+    Any,
+    Dict,
+    Tuple,
+    Optional,
+    # TypeVar,
+)
+from typing_extensions import Literal
 from sqlalchemy import text
 
 from ..inspected import ColumnInfo, Inspected
@@ -37,8 +45,8 @@ RLSPOLICIES_QUERY = resource_text("sql/rlspolicies.sql")
 
 
 class InspectedSelectable(BaseInspectedSelectable):
-    def has_compatible_columns(self, other):
-        def names_and_types(cols):
+    def has_compatible_columns(self, other) -> bool:
+        def names_and_types(cols: Dict[str, Any]) -> List[Tuple[str, Any]]:  # FIXME
             return [(k, c.dbtype) for k, c in cols.items()]
 
         items = names_and_types(self.columns)
@@ -49,7 +57,7 @@ class InspectedSelectable(BaseInspectedSelectable):
 
         return items == names_and_types(other.columns)
 
-    def can_replace(self, other):
+    def can_replace(self, other) -> bool:
         if not (self.relationtype in ("v", "f") or self.is_table):
             return False
 
@@ -62,7 +70,7 @@ class InspectedSelectable(BaseInspectedSelectable):
         return self.has_compatible_columns(other)
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         n = self.quoted_full_name
         if self.relationtype in ("r", "p"):
             if not self.is_partitioning_child_table:
@@ -105,7 +113,7 @@ class InspectedSelectable(BaseInspectedSelectable):
         return create_statement
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         n = self.quoted_full_name
         if self.relationtype in ("r", "p"):
             drop_statement = "drop table {};".format(n)
@@ -120,7 +128,7 @@ class InspectedSelectable(BaseInspectedSelectable):
 
         return drop_statement
 
-    def alter_table_statement(self, clause):
+    def alter_table_statement(self, clause) -> str:
         if self.is_alterable:
             alter = "alter table {} {};".format(self.quoted_full_name, clause)
         else:
@@ -129,44 +137,44 @@ class InspectedSelectable(BaseInspectedSelectable):
         return alter
 
     @property
-    def is_partitioned(self):
+    def is_partitioned(self) -> bool:
         return self.relationtype == "p"
 
     @property
-    def is_inheritance_child_table(self):
+    def is_inheritance_child_table(self) -> bool:
         return bool(self.parent_table) and not self.partition_def
 
     @property
-    def is_table(self):
+    def is_table(self) -> bool:
         return self.relationtype in ("p", "r")
 
     @property
-    def is_alterable(self):
+    def is_alterable(self) -> bool:
         return self.is_table and not self.parent_table
 
     @property
-    def contains_data(self):
+    def contains_data(self) -> bool:
         return bool(
             self.relationtype == "r" and (self.parent_table or not self.partition_def)
         )
 
     # for back-compat only
     @property
-    def is_child_table(self):
+    def is_child_table(self) -> bool:
         return self.is_partitioning_child_table
 
     @property
-    def is_partitioning_child_table(self):
+    def is_partitioning_child_table(self) -> bool:
         return bool(
             self.relationtype == "r" and self.parent_table and self.partition_def
         )
 
     @property
-    def uses_partitioning(self):
+    def uses_partitioning(self) -> bool:
         return self.is_partitioning_child_table or self.is_partitioned
 
     @property
-    def attach_statement(self):
+    def attach_statement(self) -> str:
         if self.parent_table:
             if self.partition_def:
                 return "alter table {} attach partition {} {};".format(
@@ -176,9 +184,10 @@ class InspectedSelectable(BaseInspectedSelectable):
                 return "alter table {} inherit {}".format(
                     self.quoted_full_name, self.parent_table
                 )
+        return ""
 
     @property
-    def detach_statement(self):
+    def detach_statement(self) -> str:
         if self.parent_table:
             if self.partition_def:
                 return "alter table {} detach partition {};".format(
@@ -188,8 +197,10 @@ class InspectedSelectable(BaseInspectedSelectable):
                 return "alter table {} no inherit {}".format(
                     self.quoted_full_name, self.parent_table
                 )
+        else:
+            return ""
 
-    def attach_detach_statements(self, before):
+    def attach_detach_statements(self, before) -> List[str]:
         slist = []
         if self.parent_table != before.parent_table:
             if before.parent_table:
@@ -199,12 +210,12 @@ class InspectedSelectable(BaseInspectedSelectable):
         return slist
 
     @property
-    def alter_rls_clause(self):
+    def alter_rls_clause(self) -> str:
         keyword = "enable" if self.rowsecurity else "disable"
         return "{} row level security".format(keyword)
 
     @property
-    def alter_rls_statement(self):
+    def alter_rls_statement(self) -> str:
         return self.alter_table_statement(self.alter_rls_clause)
 
 
@@ -246,15 +257,15 @@ class InspectedFunction(InspectedSelectable):
         )
 
     @property
-    def returntype_is_table(self):
+    def returntype_is_table(self) -> bool:
         return "." in self.returntype
 
     @property
-    def signature(self):
+    def signature(self) -> str:
         return "{}({})".format(self.quoted_full_name, self.identity_arguments)
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         return self.full_definition + ";"
         """
         return CREATE_FUNCTION_FORMAT.format(
@@ -269,19 +280,22 @@ class InspectedFunction(InspectedSelectable):
         """
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "drop function if exists {};".format(self.signature)
 
-    def __eq__(self, other):
-        return (
-            self.signature == other.signature
-            and self.result_string == other.result_string
-            and self.definition == other.definition
-            and self.language == other.language
-            and self.volatility == other.volatility
-            and self.strictness == other.strictness
-            and self.security_type == other.security_type
-        )
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, InspectedFunction):
+            return (
+                self.signature == other.signature
+                and self.result_string == other.result_string
+                and self.definition == other.definition
+                and self.language == other.language
+                and self.volatility == other.volatility
+                and self.strictness == other.strictness
+                and self.security_type == other.security_type
+            )
+        else:
+            return False
 
 
 class InspectedTrigger(Inspected):
@@ -299,11 +313,11 @@ class InspectedTrigger(Inspected):
         ) = (name, schema, table_name, proc_schema, proc_name, enabled, full_definition)
 
     @property
-    def signature(self):
+    def signature(self) -> str:
         return self.quoted_full_name
 
     @property
-    def quoted_full_name(self):
+    def quoted_full_name(self) -> str:
         return "{}.{}.{}".format(
             quoted_identifier(self.schema),
             quoted_identifier(self.table_name),
@@ -311,29 +325,32 @@ class InspectedTrigger(Inspected):
         )
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return 'drop trigger if exists "{}" on "{}"."{}";'.format(
             self.name, self.schema, self.table_name
         )
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         return self.full_definition + ";"
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         """
         :type other: InspectedTrigger
         :rtype: bool
         """
-        return (
-            self.name == other.name
-            and self.schema == other.schema
-            and self.table_name == other.table_name
-            and self.proc_schema == other.proc_schema
-            and self.proc_name == other.proc_name
-            and self.enabled == other.enabled
-            and self.full_definition == other.full_definition
-        )
+        if isinstance(other, InspectedTrigger):
+            return (
+                self.name == other.name
+                and self.schema == other.schema
+                and self.table_name == other.table_name
+                and self.proc_schema == other.proc_schema
+                and self.proc_name == other.proc_name
+                and self.enabled == other.enabled
+                and self.full_definition == other.full_definition
+            )
+        else:
+            return False
 
 
 class InspectedIndex(Inspected, TableRelated):
@@ -355,7 +372,7 @@ class InspectedIndex(Inspected, TableRelated):
         partial_predicate,
         definition=None,
         constraint=None,
-    ):
+    ) -> None:
         self.name = name
         self.schema = schema
         self.definition = definition
@@ -374,54 +391,56 @@ class InspectedIndex(Inspected, TableRelated):
         self.constraint = constraint
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "drop index if exists {};".format(self.quoted_full_name)
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         return "{};".format(self.definition)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         """
         :type other: InspectedIndex
         :rtype: bool
         """
-        equalities = (
-            self.name == other.name,
-            self.schema == other.schema,
-            self.table_name == other.table_name,
-            self.key_columns == other.key_columns,
-            self.key_options == other.key_options,
-            self.num_att == other.num_att,
-            self.is_unique == other.is_unique,
-            self.is_pk == other.is_pk,
-            self.is_exclusion == other.is_exclusion,
-            self.is_immediate == other.is_immediate,
-            self.is_clustered == other.is_clustered,
-            self.key_collations == other.key_collations,
-            self.key_expressions == other.key_expressions,
-            self.partial_predicate == other.partial_predicate,
-            # self.constraint == other.constraint
-        )
-        return all(equalities)
+        if isinstance(other, InspectedIndex):
+            return (
+                self.name == other.name
+                and self.schema == other.schema
+                and self.table_name == other.table_name
+                and self.key_columns == other.key_columns
+                and self.key_options == other.key_options
+                and self.num_att == other.num_att
+                and self.is_unique == other.is_unique
+                and self.is_pk == other.is_pk
+                and self.is_exclusion == other.is_exclusion
+                and self.is_immediate == other.is_immediate
+                and self.is_clustered == other.is_clustered
+                and self.key_collations == other.key_collations
+                and self.key_expressions == other.key_expressions
+                and self.partial_predicate == other.partial_predicate
+                # self.constraint == other.constraint
+            )
+        else:
+            return False
 
 
 class InspectedSequence(Inspected):
-    def __init__(self, name, schema):
+    def __init__(self, name: str, schema: str):
         self.name = name
         self.schema = schema
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "drop sequence if exists {};".format(self.quoted_full_name)
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         return "create sequence {};".format(self.quoted_full_name)
 
-    def __eq__(self, other):
-        equalities = self.name == other.name, self.schema == other.schema
-        return all(equalities)
+    def __eq__(self, other: Any) -> bool:
+        # FIXME: duck typing
+        return self.name == other.name and self.schema == other.schema
 
 
 class InspectedCollation(Inspected):
@@ -435,58 +454,59 @@ class InspectedCollation(Inspected):
         self.version = version
 
     @property
-    def locale(self):
+    def locale(self) -> str:
         return self.lc_collate
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "drop collation if exists {};".format(self.quoted_full_name)
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         return "create collation if not exists {} (provider = '{}', locale = '{}');".format(
             self.quoted_full_name, self.provider, self.locale
         )
 
-    def __eq__(self, other):
-
-        equalities = (
-            self.name == other.name,
-            self.schema == other.schema,
-            self.provider == other.provider,
-            self.locale == other.locale,
-        )
-        return all(equalities)
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, InspectedCollation):
+            return (
+                self.name == other.name
+                and self.schema == other.schema
+                and self.provider == other.provider
+                and self.locale == other.locale
+            )
+        else:
+            return False
 
 
 class InspectedEnum(Inspected):
-    def __init__(self, name, schema, elements):
+    def __init__(self, name, schema, elements) -> None:
         self.name = name
         self.schema = schema
         self.elements = elements
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "drop type {};".format(self.quoted_full_name)
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         return "create type {} as enum ({});".format(
             self.quoted_full_name, self.quoted_elements
         )
 
     @property
-    def quoted_elements(self):
+    def quoted_elements(self) -> str:
         quoted = ["'{}'".format(e) for e in self.elements]
         return ", ".join(quoted)
 
-    def change_statements(self, new):
+    def change_statements(self, new) -> List[str]:
         if not self.can_be_changed_to(new):
             raise ValueError
 
         new = new.elements
         old = self.elements
-        statements = []
+        statements: List[str] = []
         previous = None
         for c in new:
             if c not in old:
@@ -502,49 +522,55 @@ class InspectedEnum(Inspected):
             previous = c
         return statements
 
-    def can_be_changed_to(self, new):
+    def can_be_changed_to(self, new) -> bool:
         old = self.elements
         # new must already have the existing items from old, in the same order
         return [e for e in new.elements if e in old] == old
 
-    def __eq__(self, other):
-        equalities = (
-            self.name == other.name,
-            self.schema == other.schema,
-            self.elements == other.elements,
-        )
-        return all(equalities)
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, InspectedEnum):
+            return (
+                self.name == other.name
+                and self.schema == other.schema
+                and self.elements == other.elements
+            )
+        else:
+            return False
 
 
 class InspectedSchema(Inspected):
-    def __init__(self, schema):
+    def __init__(self, schema) -> None:
         self.schema = schema
         self.name = None
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         return "create schema if not exists {};".format(self.quoted_schema)
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "drop schema if exists {};".format(self.quoted_schema)
 
-    def __eq__(self, other):
-        return self.schema == other.schema
+    def __eq__(self, other: Any) -> bool:
+        # FIXME
+        if getattr(other, "schema"):
+            return self.schema == other.schema
+        else:
+            return False
 
 
 class InspectedType(Inspected):
-    def __init__(self, name, schema, columns):
+    def __init__(self, name, schema, columns) -> None:
         self.name = name
         self.schema = schema
         self.columns = columns
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "drop type {};".format(self.signature)
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         sql = "create type {} as (\n".format(self.signature)
 
         indent = " " * 4
@@ -557,7 +583,7 @@ class InspectedType(Inspected):
         sql += "\n);"
         return sql
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return (
             self.schema == other.schema
             and self.name == other.name
@@ -587,18 +613,16 @@ class InspectedDomain(Inspected):
         self.check = check
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "drop domain {};".format(self.signature)
 
     @property
-    def create_statement(self):
-        T = """\
-create domain {name}
-as {_type}
-{collation}{default}{nullable}{check}
-"""
-
-        sql = T.format(
+    def create_statement(self) -> str:
+        sql = (
+            "create domain {name}\n"
+            "as {_type}\n"
+            "{collation}{default}{nullable}{check}\n"
+        ).format(
             name=self.signature,
             _type=self.data_type,
             collation=self.collation_clause,
@@ -610,28 +634,28 @@ as {_type}
         return sql
 
     @property
-    def check_clause(self):
+    def check_clause(self) -> str:
         if self.check:
             return "{}\n".format(self.check)
 
         return ""
 
     @property
-    def collation_clause(self):
+    def collation_clause(self) -> str:
         if self.collation:
             return "collation {}\n".format(self.collation)
 
         return ""
 
     @property
-    def default_clause(self):
+    def default_clause(self) -> str:
         if self.default:
             return "default {}\n".format(self.default)
 
         return ""
 
     @property
-    def nullable_clause(self):
+    def nullable_clause(self) -> str:
         if self.not_null:
             return "not null\n"
         else:
@@ -641,7 +665,7 @@ as {_type}
         "schema name data_type collation default constraint_name not_null check".split()
     )
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         try:
             return all(
                 [
@@ -654,28 +678,28 @@ as {_type}
 
 
 class InspectedExtension(Inspected):
-    def __init__(self, name, schema, version):
+    def __init__(self, name, schema, version) -> None:
         self.name = name
         self.schema = schema
         self.version = version
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "drop extension if exists {};".format(self.quoted_name)
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         return "create extension if not exists {} with schema {} version '{}';".format(
             self.quoted_name, self.quoted_schema, self.version
         )
 
     @property
-    def update_statement(self):
+    def update_statement(self) -> str:
         return "alter extension {} update to version '{}';".format(
             self.quoted_full_name, self.version
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         equalities = (
             self.name == other.name,
             self.schema == other.schema,
@@ -694,13 +718,13 @@ class InspectedConstraint(Inspected, TableRelated):
         self.index = index
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "alter table {} drop constraint {};".format(
             self.quoted_full_table_name, self.quoted_name
         )
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         USING = "alter table {} add constraint {} {} using index {};"
         NOT_USING = "alter table {} add constraint {} {};"
         if self.index:
@@ -717,14 +741,14 @@ class InspectedConstraint(Inspected, TableRelated):
             )
 
     @property
-    def quoted_full_name(self):
+    def quoted_full_name(self) -> str:
         return "{}.{}.{}".format(
             quoted_identifier(self.schema),
             quoted_identifier(self.table_name),
             quoted_identifier(self.name),
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         equalities = (
             self.name == other.name,
             self.schema == other.schema,
@@ -744,11 +768,11 @@ class InspectedPrivilege(Inspected):
         self.target_user = target_user
 
     @property
-    def quoted_target_user(self):
+    def quoted_target_user(self) -> str:
         return quoted_identifier(self.target_user)
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "revoke {} on {} {} from {};".format(
             self.privilege,
             self.object_type,
@@ -757,7 +781,7 @@ class InspectedPrivilege(Inspected):
         )
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         return "grant {} on {} {} to {};".format(
             self.privilege,
             self.object_type,
@@ -765,18 +789,19 @@ class InspectedPrivilege(Inspected):
             self.quoted_target_user,
         )
 
-    def __eq__(self, other):
-        equalities = (
-            self.schema == other.schema,
-            self.object_type == other.object_type,
-            self.name == other.name,
-            self.privilege == other.privilege,
-            self.target_user == other.target_user,
-        )
-        return all(equalities)
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, InspectedPrivilege):
+            return (
+                self.schema == other.schema
+                and self.object_type == other.object_type
+                and self.name == other.name
+                and self.privilege == other.privilege
+                and self.target_user == other.target_user
+            )
+        return False
 
     @property
-    def key(self):
+    def key(self) -> Tuple[Any, str, Any, Any]:
         return self.object_type, self.quoted_full_name, self.target_user, self.privilege
 
 
@@ -804,19 +829,19 @@ class InspectedRowPolicy(Inspected, TableRelated):
         self.withcheck = withcheck
 
     @property
-    def permissiveness(self):
+    def permissiveness(self) -> Literal["permissive", "restrictive"]:
         return "permissive" if self.permissive else "restrictive"
 
     @property
-    def commandtype_keyword(self):
+    def commandtype_keyword(self) -> str:
         return COMMANDTYPES[self.commandtype]
 
     @property
-    def key(self):
+    def key(self) -> str:
         return "{}.{}".format(self.quoted_full_table_name, self.quoted_name)
 
     @property
-    def create_statement(self):
+    def create_statement(self) -> str:
         if self.qual:
             qual_clause = "\nusing {}".format(self.qual)
         else:
@@ -840,12 +865,12 @@ class InspectedRowPolicy(Inspected, TableRelated):
         )
 
     @property
-    def drop_statement(self):
+    def drop_statement(self) -> str:
         return "drop policy {} on {};".format(
             self.quoted_name, self.quoted_full_table_name
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         equalities = (
             self.name == self.name,
             self.schema == other.schema,
@@ -864,11 +889,11 @@ class PostgreSQL(DBInspector):
         pg_version = c.dialect.server_version_info[0]
         self.pg_version = pg_version
 
-        def processed(q):
+        def processed(query: str) -> str:
             if not include_internal:
-                q = q.replace("-- SKIP_INTERNAL", "")
-            q = text(q)
-            return q
+                query = query.replace("-- SKIP_INTERNAL", "")
+            query = text(query)
+            return query
 
         if pg_version <= 9:
             self.ALL_RELATIONS_QUERY = processed(ALL_RELATIONS_QUERY_9)
@@ -893,7 +918,7 @@ class PostgreSQL(DBInspector):
 
         super(PostgreSQL, self).__init__(c, include_internal)
 
-    def load_all(self):
+    def load_all(self) -> None:
         self.load_schemas()
         self.load_all_relations()
         self.load_functions()
@@ -909,12 +934,12 @@ class PostgreSQL(DBInspector):
         self.load_types()
         self.load_domains()
 
-    def load_schemas(self):
+    def load_schemas(self) -> None:
         q = self.c.execute(self.SCHEMAS_QUERY)
         schemas = [InspectedSchema(schema=each.schema) for each in q]
         self.schemas = {schema.schema: schema for schema in schemas}
 
-    def load_rlspolicies(self):
+    def load_rlspolicies(self) -> None:
         if self.pg_version <= 9:
             self.rlspolicies = {}
             return
@@ -937,7 +962,7 @@ class PostgreSQL(DBInspector):
 
         self.rlspolicies = {p.key: p for p in rlspolicies}
 
-    def load_collations(self):
+    def load_collations(self) -> None:
         q = self.c.execute(self.COLLATIONS_QUERY)
         collations = [
             InspectedCollation(
@@ -953,7 +978,7 @@ class PostgreSQL(DBInspector):
         ]
         self.collations = {i.quoted_full_name: i for i in collations}
 
-    def load_privileges(self):
+    def load_privileges(self) -> None:
         q = self.c.execute(self.PRIVILEGES_QUERY)
         privileges = [
             InspectedPrivilege(
@@ -967,7 +992,7 @@ class PostgreSQL(DBInspector):
         ]
         self.privileges = {i.key: i for i in privileges}
 
-    def load_deps(self):
+    def load_deps(self) -> None:
         q = self.c.execute(self.DEPS_QUERY)
         for dep in q:
             x = quoted_identifier(dep.name, dep.schema)
@@ -981,7 +1006,7 @@ class PostgreSQL(DBInspector):
             self.selectables[x_dependent_on].dependents.append(x)
             self.selectables[x_dependent_on].dependents.sort()
 
-    def load_deps_all(self):
+    def load_deps_all(self) -> None:
         def get_related_for_item(item, att):
             related = [self.selectables[_] for _ in getattr(item, att)]
             return [item.signature] + [
@@ -997,33 +1022,37 @@ class PostgreSQL(DBInspector):
             x.dependents_all = d_all
 
     @property
-    def partitioned_tables(self):
+    def partitioned_tables(self) -> Dict[str, InspectedSelectable]:
         return dict((k, v) for k, v in self.tables.items() if v.is_partitioned)
 
     @property
-    def alterable_tables(self):  # ordinary tables and parent tables
+    def alterable_tables(
+        self,
+    ) -> Dict[str, InspectedSelectable]:  # ordinary tables and parent tables
         return dict((k, v) for k, v in self.tables.items() if v.is_alterable)
 
     @property
-    def data_tables(self):  # ordinary tables and child tables
+    def data_tables(
+        self,
+    ) -> Dict[str, InspectedSelectable]:  # ordinary tables and child tables
         return dict((k, v) for k, v in self.tables.items() if v.contains_data)
 
     @property
-    def partitioning_child_tables(self):
+    def partitioning_child_tables(self) -> Dict[str, InspectedSelectable]:
         return dict(
             (k, v) for k, v in self.tables.items() if v.is_partitioning_child_table
         )
 
     @property
-    def tables_using_partitioning(self):
+    def tables_using_partitioning(self) -> Dict[str, InspectedSelectable]:
         return dict((k, v) for k, v in self.tables.items() if v.uses_partitioning)
 
     @property
-    def tables_not_using_partitioning(self):
+    def tables_not_using_partitioning(self) -> Dict[str, InspectedSelectable]:
         return dict((k, v) for k, v in self.tables.items() if not v.uses_partitioning)
 
-    def load_all_relations(self):
-        self.tables = {}
+    def load_all_relations(self) -> None:
+        self.tables: Dict[str, Any] = {}
         self.views = {}
         self.materialized_views = {}
         self.composite_types = {}
@@ -1038,7 +1067,7 @@ class PostgreSQL(DBInspector):
             clist = list(g)
             f = clist[0]
 
-            def get_enum(name, schema):
+            def get_enum(name: str, schema: str) -> Optional[InspectedEnum]:
                 if not name and not schema:
                     return None
 
@@ -1152,7 +1181,7 @@ class PostgreSQL(DBInspector):
             n = each.quoted_full_name
             self.relations[t].constraints[n] = each
 
-    def load_functions(self):
+    def load_functions(self) -> None:
         self.functions = {}
         q = self.c.execute(self.FUNCTIONS_QUERY)
         for _, g in groupby(q, lambda x: (x.schema, x.name, x.identity_arguments)):
@@ -1215,7 +1244,7 @@ class PostgreSQL(DBInspector):
             identity_arguments = "({})".format(s.identity_arguments)
             self.functions[s.quoted_full_name + identity_arguments] = s
 
-    def load_triggers(self):
+    def load_triggers(self) -> None:
         q = self.c.execute(self.TRIGGERS_QUERY)
         triggers = [
             InspectedTrigger(
@@ -1231,7 +1260,7 @@ class PostgreSQL(DBInspector):
         ]  # type: list[InspectedTrigger]
         self.triggers = {t.signature: t for t in triggers}
 
-    def load_types(self):
+    def load_types(self) -> None:
         q = self.c.execute(self.TYPES_QUERY)
 
         def col(defn):
@@ -1242,7 +1271,7 @@ class PostgreSQL(DBInspector):
         ]  # type: list[InspectedType]
         self.types = {t.signature: t for t in types}
 
-    def load_domains(self):
+    def load_domains(self) -> None:
         q = self.c.execute(self.DOMAINS_QUERY)
 
         def col(defn):
@@ -1263,29 +1292,31 @@ class PostgreSQL(DBInspector):
         ]  # type: List[InspectedType]
         self.domains = {t.signature: t for t in domains}
 
-    def one_schema(self, schema):
+    def one_schema(self, schema: str) -> None:
         props = "schemas relations tables views functions selectables sequences constraints indexes enums extensions privileges collations triggers"
         for prop in props.split():
             att = getattr(self, prop)
             filtered = {k: v for k, v in att.items() if v.schema == schema}
             setattr(self, prop, filtered)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         """
         :type other: PostgreSQL
         :rtype: bool
         """
-
-        return (
-            type(self) == type(other)
-            and self.schemas == other.schemas
-            and self.relations == other.relations
-            and self.sequences == other.sequences
-            and self.enums == other.enums
-            and self.constraints == other.constraints
-            and self.extensions == other.extensions
-            and self.functions == other.functions
-            and self.triggers == other.triggers
-            and self.collations == other.collations
-            and self.rlspolicies == other.rlspolicies
-        )
+        if isinstance(other, PostgreSQL):
+            return (
+                type(self) == type(other)
+                and self.schemas == other.schemas
+                and self.relations == other.relations
+                and self.sequences == other.sequences
+                and self.enums == other.enums
+                and self.constraints == other.constraints
+                and self.extensions == other.extensions
+                and self.functions == other.functions
+                and self.triggers == other.triggers
+                and self.collations == other.collations
+                and self.rlspolicies == other.rlspolicies
+            )
+        else:
+            return False

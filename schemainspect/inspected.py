@@ -85,7 +85,7 @@ class ColumnInfo(AutoRepr):
         else:
             return False
 
-    def alter_clauses(self, other: ColumnInfo) -> List[str]:
+    def alter_clauses(self, other: "ColumnInfo") -> List[str]:
         clauses: List[str] = []
         if self.default != other.default:
             clauses.append(self.alter_default_clause)
@@ -117,7 +117,7 @@ class ColumnInfo(AutoRepr):
         else:
             raise ValueError
 
-    def alter_table_statements(self, other: ColumnInfo, table_name: str) -> List[str]:
+    def alter_table_statements(self, other: "ColumnInfo", table_name: str) -> List[str]:
         prefix = "alter table {}".format(table_name)
         return ["{} {};".format(prefix, c) for c in self.alter_clauses(other)]
 
@@ -184,12 +184,12 @@ class InspectedSelectable(Inspected):
         columns,
         inputs=None,
         definition=None,
-        dependent_on: Optional[List] = None,
-        dependents: Optional[List] = None,
+        dependent_on: Optional[List["InspectedSelectable"]] = None,
+        dependents: Optional[List["InspectedSelectable"]] = None,
         comment: Optional[str] = None,
         relationtype: str = "unknown",
-        parent_table=None,
-        partition_def=None,
+        parent_table: Optional[Any] = None,
+        partition_def: Optional[Any] = None,
         rowsecurity: bool = False,
         forcerowsecurity: bool = False,
     ):

@@ -21,7 +21,7 @@ CREATE UNIQUE INDEX fun_partial_index ON it.foo (it.key_func(b))
 """
 
 
-def test_indexes(db):
+def test_indexes(db) -> None:
     with S(db) as s:
         s.execute(CREATE)
         i1 = get_inspector(s, schema="it")
@@ -40,7 +40,7 @@ create table t(id uuid primary key, x bigint);
 """
 
 
-def test_constraints(db):
+def test_constraints(db) -> None:
     with S(db) as s:
         s.execute(CREATE_CONST)
 

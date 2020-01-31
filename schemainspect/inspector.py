@@ -1,4 +1,3 @@
-import sys
 from typing import Any, Dict, Type, TypeVar, Union
 
 from sqlalchemy.dialects.postgresql import dialect as postgresql
@@ -28,7 +27,9 @@ def to_pytype(sqla_dialect: postgresql, typename: str) -> Union[Type[None], Type
 
 
 class DBInspector(object):
-    # TODO: load_all
+    def load_all(self) -> None:
+        ...
+
     def __init__(self, c: Connection, include_internal: bool = False) -> None:
         self.c = c
         self.engine = self.c.engine

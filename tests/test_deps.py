@@ -26,7 +26,7 @@ CREATES = """
 """
 
 
-def test_can_replace(db):
+def test_can_replace(db) -> None:
     with S(db) as s:
         s.execute(CREATES)
 
@@ -72,7 +72,7 @@ create or replace view vvv as select similarity('aaa', 'aaabc')::decimal as x, 1
         assert t1.can_replace(t2) is False
 
 
-def test_relationships(db):
+def test_relationships(db) -> None:
     # commented-out dependencies are the dependencies that aren't tracked directly by postgres
     with S(db) as s:
         s.execute(CREATES)

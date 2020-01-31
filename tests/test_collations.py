@@ -3,7 +3,7 @@ from sqlbag import S
 from schemainspect import get_inspector
 
 
-def test_collations(db):
+def test_collations(db) -> None:
     with S(db) as s:
         i = get_inspector(s)
 

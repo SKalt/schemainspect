@@ -11,7 +11,7 @@ SUPPORTED = {"postgresql": PostgreSQL}
 
 
 def get_inspector(
-    x: Union[None, Session, Connection], schema=None
+    x: Union[None, Session, Connection], schema: str = None
 ) -> Union[NullInspector]:
     """
     Get an inspector for

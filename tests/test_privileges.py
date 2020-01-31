@@ -1,7 +1,7 @@
 from schemainspect.pg.obj import InspectedPrivilege
 
 
-def test_inspected_privilege():
+def test_inspected_privilege() -> None:
     a = InspectedPrivilege("table", "public", "test_table", "select", "test_user")
     a2 = InspectedPrivilege("table", "public", "test_table", "select", "test_user")
     b = InspectedPrivilege(

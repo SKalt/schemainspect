@@ -5,7 +5,7 @@ from schemainspect import get_inspector
 from .test_all import setup_pg_schema
 
 
-def asserts_pg_singleschema(i, schema_name):
+def asserts_pg_singleschema(i, schema_name: str) -> None:
     for (
         prop
     ) in "schemas relations tables views functions selectables sequences enums constraints".split():
@@ -14,7 +14,7 @@ def asserts_pg_singleschema(i, schema_name):
             assert v.schema == schema_name
 
 
-def test_postgres_inspect_singleschema(db):
+def test_postgres_inspect_singleschema(db) -> None:
     with S(db) as s:
         setup_pg_schema(s)
         i = get_inspector(s, schema="otherschema")
